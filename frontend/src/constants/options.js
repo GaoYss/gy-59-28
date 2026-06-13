@@ -10,3 +10,10 @@ export const timeSlots = [
 export const appointmentStatuses = ['已预约', '已确认', '已取消', '已完成']
 
 export const makeupStatuses = ['待安排', '已安排', '已通过', '已取消']
+
+export const examBatches = ['上午', '下午']
+
+export const batchTimeSlots = {
+  '上午': ['09:00-10:00', '10:30-11:30'],
+  '下午': ['14:00-15:00', '15:30-16:30']
+}

@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
 
 from ..extensions import db
-from ..models import Appointment, Rule
+from ..models import Appointment, ExamBatch, Rule
 
 appointments_bp = Blueprint("appointments", __name__, url_prefix="/api/appointments")
 
@@ -40,6 +40,21 @@ def validate_appointment(payload):
     ).count()
     if daily_count >= rule.max_daily_slots:
         return "当日该科目预约名额已满", None
+
+    timeslot = payload.get("timeslot", "")
+    batch_period = "上午" if timeslot in ["09:00-10:00", "10:30-11:30"] else ("下午" if timeslot in ["14:00-15:00", "15:30-16:30"] else "其他")
+    exam_batch = ExamBatch.query.filter_by(exam_date=exam_date, period=batch_period).first()
+    if exam_batch:
+        if exam_batch.status == "关闭":
+            return f"{batch_period}批次已关闭预约", None
+        batch_timeslots = ["09:00-10:00", "10:30-11:30"] if batch_period == "上午" else ["14:00-15:00", "15:30-16:30"]
+        batch_count = Appointment.query.filter(
+            Appointment.exam_date == exam_date,
+            Appointment.timeslot.in_(batch_timeslots),
+            Appointment.status.in_(["已预约", "已确认"]),
+        ).count()
+        if batch_count >= exam_batch.capacity:
+            return f"{batch_period}批次名额已满（{exam_batch.capacity}人）", None
 
     earliest_date = date.today() + timedelta(days=rule.min_interval_days)
     if exam_date < earliest_date:
@@ -98,3 +113,78 @@ def update_appointment_status(appointment_id):
     appointment.status = status
     db.session.commit()
     return jsonify(appointment.to_dict())
+
+
+def get_batch(timeslot):
+    if timeslot in ["09:00-10:00", "10:30-11:30"]:
+        return "上午"
+    elif timeslot in ["14:00-15:00", "15:30-16:30"]:
+        return "下午"
+    return "其他"
+
+
+@appointments_bp.get("/batches")
+def list_batches():
+    subject = request.args.get("subject")
+    start_date = parse_exam_date(request.args.get("startDate"))
+    end_date = parse_exam_date(request.args.get("endDate"))
+
+    query = Appointment.query.order_by(
+        Appointment.exam_date.asc(), Appointment.timeslot.asc()
+    )
+    if subject:
+        query = query.filter_by(subject=subject)
+    if start_date:
+        query = query.filter(Appointment.exam_date >= start_date)
+    if end_date:
+        query = query.filter(Appointment.exam_date <= end_date)
+
+    appointments = query.all()
+
+    batch_data = {}
+    for apt in appointments:
+        date_str = apt.exam_date.isoformat()
+        batch = get_batch(apt.timeslot)
+
+        if date_str not in batch_data:
+            batch_data[date_str] = {
+                "上午": {
+                    "registered": 0,
+                    "attended": 0,
+                    "appointments": [],
+                },
+                "下午": {
+                    "registered": 0,
+                    "attended": 0,
+                    "appointments": [],
+                },
+            }
+
+        if apt.status in ["已预约", "已确认", "已完成"]:
+            batch_data[date_str][batch]["registered"] += 1
+
+        if apt.status in ["已确认", "已完成"]:
+            batch_data[date_str][batch]["attended"] += 1
+
+        batch_data[date_str][batch]["appointments"].append(apt.to_dict())
+
+    result = []
+    for date_str, batches in sorted(batch_data.items()):
+        for batch_name in ["上午", "下午"]:
+            batch_info = batches[batch_name]
+            result.append(
+                {
+                    "examDate": date_str,
+                    "batch": batch_name,
+                    "registered": batch_info["registered"],
+                    "attended": batch_info["attended"],
+                    "attendanceRate": (
+                        round(batch_info["attended"] / batch_info["registered"] * 100, 1)
+                        if batch_info["registered"] > 0
+                        else 0
+                    ),
+                    "appointments": batch_info["appointments"],
+                }
+            )
+
+    return jsonify(result)

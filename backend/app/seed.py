@@ -1,7 +1,7 @@
 from datetime import date
 
 from .extensions import db
-from .models import Appointment, ExamQuestion, Makeup, Rule
+from .models import Appointment, ExamBatch, ExamQuestion, Makeup, Rule
 
 
 def seed_data():
@@ -66,6 +66,15 @@ def seed_data():
                 status="已预约",
             )
         )
+
+    if not ExamBatch.query.first():
+        sample_batches = [
+            ExamBatch(exam_date=date(2026, 6, 15), period="上午", capacity=30, status="开放"),
+            ExamBatch(exam_date=date(2026, 6, 15), period="下午", capacity=25, status="开放"),
+            ExamBatch(exam_date=date(2026, 6, 16), period="上午", capacity=30, status="开放"),
+            ExamBatch(exam_date=date(2026, 6, 16), period="下午", capacity=25, status="关闭"),
+        ]
+        db.session.add_all(sample_batches)
 
     if not Makeup.query.first():
         db.session.add(

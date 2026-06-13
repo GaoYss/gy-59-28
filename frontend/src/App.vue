@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   ClipboardList,
   FileText,
+  LayoutGrid,
   RotateCcw,
   SlidersHorizontal
 } from 'lucide-vue-next'
@@ -13,9 +14,11 @@ import ExamView from './views/ExamView.vue'
 import ScoresView from './views/ScoresView.vue'
 import MakeupView from './views/MakeupView.vue'
 import RulesView from './views/RulesView.vue'
+import ExamBatchView from './views/ExamBatchView.vue'
 
 const navItems = [
   { key: 'appointments', label: '科目预约', icon: CalendarCheck, component: AppointmentView },
+  { key: 'batches', label: '批次管理', icon: LayoutGrid, component: ExamBatchView },
   { key: 'exam', label: '模拟考试', icon: ClipboardList, component: ExamView },
   { key: 'scores', label: '成绩查询', icon: FileText, component: ScoresView },
   { key: 'makeups', label: '补考管理', icon: RotateCcw, component: MakeupView },

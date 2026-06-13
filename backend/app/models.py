@@ -98,6 +98,26 @@ class ExamRecord(db.Model):
         }
 
 
+class ExamBatch(db.Model):
+    __tablename__ = "exam_batches"
+    __table_args__ = (db.UniqueConstraint("exam_date", "period", name="uq_batch_date_period"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    exam_date = db.Column(db.Date, nullable=False)
+    period = db.Column(db.String(10), nullable=False)
+    capacity = db.Column(db.Integer, nullable=False, default=30)
+    status = db.Column(db.String(20), nullable=False, default="开放")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "examDate": self.exam_date.isoformat(),
+            "period": self.period,
+            "capacity": self.capacity,
+            "status": self.status,
+        }
+
+
 class Makeup(db.Model):
     __tablename__ = "makeups"
 
