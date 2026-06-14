@@ -16,7 +16,8 @@ def create_app(config_class=Config):
 
     with app.app_context():
         db.create_all()
-        seed_data()
+        if not app.config.get("TESTING"):
+            seed_data()
 
     register_blueprints(app)
 
