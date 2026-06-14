@@ -29,7 +29,12 @@ def submit_exam():
     if not student_name or not subject or not isinstance(answers, dict):
         return jsonify({"message": "请提交学员姓名、科目和答案"}), 400
 
-    question_ids = [int(question_id) for question_id in answers.keys()]
+    question_ids = []
+    for qid_str in answers.keys():
+        try:
+            question_ids.append(int(qid_str))
+        except (ValueError, TypeError):
+            return jsonify({"message": f"无效的题目编号：{qid_str}"}), 400
     questions = ExamQuestion.query.filter(ExamQuestion.id.in_(question_ids)).all()
     if not questions:
         return jsonify({"message": "没有可评分的题目"}), 400

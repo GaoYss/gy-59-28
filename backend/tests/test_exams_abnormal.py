@@ -69,6 +69,33 @@ class TestInvalidQuestionIds:
         assert resp.status_code == 400
         assert "没有可评分的题目" in resp.get_json()["message"]
 
+    def test_reject_non_numeric_question_ids(self, client):
+        resp = client.post("/api/exams/submit", json={
+            "studentName": "张三",
+            "subject": "科目一",
+            "answers": {"abc": "A", "xyz": "B"},
+        })
+        assert resp.status_code == 400
+        assert "无效的题目编号" in resp.get_json()["message"]
+
+    def test_reject_mixed_numeric_and_non_numeric_ids(self, client):
+        resp = client.post("/api/exams/submit", json={
+            "studentName": "张三",
+            "subject": "科目一",
+            "answers": {"1": "A", "bad-id": "B", "3": "C"},
+        })
+        assert resp.status_code == 400
+        assert "无效的题目编号" in resp.get_json()["message"]
+
+    def test_reject_empty_string_question_id(self, client):
+        resp = client.post("/api/exams/submit", json={
+            "studentName": "张三",
+            "subject": "科目一",
+            "answers": {"": "A", "1": "B"},
+        })
+        assert resp.status_code == 400
+        assert "无效的题目编号" in resp.get_json()["message"]
+
 
 class TestEmptyAnswers:
     def test_empty_answers_dict_returns_400(self, client):

@@ -15,6 +15,8 @@ def parse_exam_date(value):
         return None
 
 
+VALID_TIMESLOTS = {"09:00-10:00", "10:30-11:30", "14:00-15:00", "15:30-16:30"}
+
 def validate_appointment(payload):
     required = ["studentName", "idNumber", "subject", "examDate", "timeslot"]
     missing = [field for field in required if not payload.get(field)]
@@ -26,6 +28,10 @@ def validate_appointment(payload):
         return "考试日期格式应为 YYYY-MM-DD", None
     if exam_date < date.today():
         return "不能预约过去日期", None
+
+    timeslot = payload.get("timeslot", "")
+    if timeslot not in VALID_TIMESLOTS:
+        return f"无效时段，可选时段：{', '.join(sorted(VALID_TIMESLOTS))}", None
 
     rule = Rule.query.filter_by(subject=payload["subject"]).first()
     if not rule or not rule.enabled:
@@ -41,8 +47,7 @@ def validate_appointment(payload):
     if daily_count >= rule.max_daily_slots:
         return "当日该科目预约名额已满", None
 
-    timeslot = payload.get("timeslot", "")
-    batch_period = "上午" if timeslot in ["09:00-10:00", "10:30-11:30"] else ("下午" if timeslot in ["14:00-15:00", "15:30-16:30"] else "其他")
+    batch_period = "上午" if timeslot in ["09:00-10:00", "10:30-11:30"] else "下午"
     exam_batch = ExamBatch.query.filter_by(exam_date=exam_date, period=batch_period).first()
     if exam_batch:
         if exam_batch.status == "关闭":

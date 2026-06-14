@@ -159,3 +159,42 @@ class TestMissingFields:
     def test_reject_empty_payload(self, client):
         resp = client.post("/api/appointments", json={})
         assert resp.status_code == 400
+
+
+class TestInvalidTimeslot:
+    def test_reject_invalid_timeslot_avoiding_batch_capacity(self, client, app):
+        with app.app_context():
+            from app.extensions import db
+            from app.models import ExamBatch
+            batch = ExamBatch.query.filter_by(exam_date=BATCH_DATE_1, period="上午").first()
+            for i in range(batch.capacity):
+                from app.models import Appointment
+                db.session.add(Appointment(
+                    student_name=f"满员学员{i}",
+                    id_number=f"full_id_{i}",
+                    subject="科目一",
+                    exam_date=BATCH_DATE_1,
+                    timeslot="09:00-10:00",
+                    status="已预约",
+                ))
+            db.session.commit()
+
+        resp = client.post("/api/appointments", json=_valid_payload(
+            timeslot="12:00-13:00"
+        ))
+        assert resp.status_code == 400
+        assert "无效时段" in resp.get_json()["message"]
+
+    def test_reject_random_timeslot(self, client):
+        resp = client.post("/api/appointments", json=_valid_payload(
+            timeslot="半夜两点"
+        ))
+        assert resp.status_code == 400
+        assert "无效时段" in resp.get_json()["message"]
+
+    def test_reject_empty_timeslot(self, client):
+        resp = client.post("/api/appointments", json=_valid_payload(
+            timeslot=""
+        ))
+        assert resp.status_code == 400
+        assert "缺少字段" in resp.get_json()["message"]

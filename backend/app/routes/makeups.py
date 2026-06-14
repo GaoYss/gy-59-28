@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 
 from ..extensions import db
-from ..models import Makeup
+from ..models import Makeup, Rule
 
 makeups_bp = Blueprint("makeups", __name__, url_prefix="/api/makeups")
 
@@ -15,6 +15,17 @@ def parse_date(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return "invalid"
+
+
+def validate_scheduled_date(scheduled_date, subject):
+    if not scheduled_date:
+        return None
+    rule = Rule.query.filter_by(subject=subject).first()
+    if rule:
+        earliest = date.today() + timedelta(days=rule.makeup_wait_days)
+        if scheduled_date < earliest:
+            return f"补考日期需至少在 {rule.makeup_wait_days} 天后（最早 {earliest.isoformat()}）"
+    return None
 
 
 @makeups_bp.get("")
@@ -38,6 +49,10 @@ def create_makeup():
     if scheduled_date == "invalid":
         return jsonify({"message": "补考日期格式应为 YYYY-MM-DD"}), 400
 
+    error = validate_scheduled_date(scheduled_date, payload["originalSubject"])
+    if error:
+        return jsonify({"message": error}), 400
+
     makeup = Makeup(
         student_name=payload["studentName"].strip(),
         original_subject=payload["originalSubject"],
@@ -60,6 +75,9 @@ def update_makeup(makeup_id):
         scheduled_date = parse_date(payload.get("scheduledDate"))
         if scheduled_date == "invalid":
             return jsonify({"message": "补考日期格式应为 YYYY-MM-DD"}), 400
+        error = validate_scheduled_date(scheduled_date, makeup.original_subject)
+        if error:
+            return jsonify({"message": error}), 400
         makeup.scheduled_date = scheduled_date
     if "status" in payload:
         if payload["status"] not in ["待安排", "已安排", "已通过", "已取消"]:
